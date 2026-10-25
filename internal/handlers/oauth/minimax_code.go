@@ -129,14 +129,22 @@ func miniMaxCodeDeadline(data map[string]any, now time.Time) int {
 	if secs, ok := positiveInt(data, "expires_in"); ok {
 		return secs
 	}
-	raw, ok := positiveInt(data, "expired_in")
+	// expired_in is read as int64, not via positiveInt: a millisecond epoch
+	// (~1.7e12) overflows int on 32-bit targets (armv7), where the 1e12
+	// comparison below does not even compile.
+	raw, ok := positiveInt64(data, "expired_in")
 	if !ok {
 		return miniMaxCodeSignInSeconds
 	}
 	if raw < 1e12 {
-		return raw
+		// A plain seconds count. Clamp to what an int can hold so an absurd
+		// upstream value cannot wrap negative on a 32-bit build.
+		if raw > math.MaxInt32 {
+			return math.MaxInt32
+		}
+		return int(raw)
 	}
-	remaining := time.UnixMilli(int64(raw)).Sub(now)
+	remaining := time.UnixMilli(raw).Sub(now)
 	if remaining <= 0 {
 		return 1
 	}
@@ -177,6 +185,17 @@ func positiveInt(data map[string]any, key string) (int, bool) {
 		return 0, false
 	}
 	return int(f), true
+}
+
+// positiveInt64 is positiveInt for fields that can exceed a 32-bit int —
+// epoch timestamps in milliseconds, not durations. The upper bound keeps
+// the float64 -> int64 conversion inside the range where it is defined.
+func positiveInt64(data map[string]any, key string) (int64, bool) {
+	f, ok := data[key].(float64)
+	if !ok || f <= 0 || f != f || f >= 1<<63 {
+		return 0, false
+	}
+	return int64(f), true
 }
 
 // positiveIntOr reads a numeric field, falling back when it is absent or

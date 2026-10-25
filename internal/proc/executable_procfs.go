@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux || android
 
 package proc
 
@@ -6,7 +6,10 @@ import "os"
 
 // /proc/<pid>/exe is a symlink to the running image and resolves to the same
 // path os.Executable reports for this process, so no platform-specific
-// comparison is needed here.
+// comparison is needed here. Android is the same Linux kernel with the same
+// procfs, so it shares this file; the _linux.go filename it used to carry
+// would have excluded it from android builds and silently fallen back to
+// the "not supported" stub in executable_other.go.
 func executablePath(pid int) (string, error) {
 	path, err := os.Readlink("/proc/" + itoa(pid) + "/exe")
 	if err != nil {

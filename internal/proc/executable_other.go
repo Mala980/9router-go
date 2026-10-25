@@ -1,4 +1,4 @@
-//go:build !linux && !windows && !darwin && !freebsd && !netbsd && !openbsd && !dragonfly
+//go:build !linux && !android && !windows && !darwin && !freebsd && !netbsd && !openbsd && !dragonfly
 
 package proc
 

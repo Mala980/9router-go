@@ -366,6 +366,11 @@ func archAliases(archKey string) []string {
 		return []string{"amd64", "x86_64", "x64"}
 	case "arm64", "aarch64":
 		return []string{"arm64", "aarch64"}
+	case "arm":
+		// The 32-bit ARM release asset is named armv7 (GOARCH=arm, GOARM=7):
+		// without this alias an armv7 install never matches its own asset
+		// and falls through to the first-asset fallback in matchReleaseAsset.
+		return []string{"armv7", "armv7l", "armhf", "arm"}
 	case "386", "x86", "i386":
 		return []string{"386", "x86", "i386"}
 	default:
@@ -382,6 +387,12 @@ func matchReleaseAsset(assets []releaseAsset, targetOS, targetArch string) strin
 		name := strings.ToLower(asset.Name)
 		// Check OS match
 		if !strings.Contains(name, osKey) {
+			continue
+		}
+		// A 32-bit arm build must never be handed the arm64 asset: "arm" is
+		// a substring of "arm64", so the alias scan below would match it and
+		// install a binary the device cannot exec.
+		if !strings.Contains(strings.ToLower(targetArch), "arm64") && strings.Contains(name, "arm64") {
 			continue
 		}
 		// Check Arch match

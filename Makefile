@@ -195,11 +195,15 @@ bench-go:
 # Instead the per-target OS/ARCH go through `export`, which is a Make directive
 # and therefore identical under sh and cmd. The export is scoped to cross-one
 # so an empty GOARCH can never leak into the normal build target.
-CROSS_TARGETS := linux-amd64 linux-arm64 darwin-amd64 darwin-arm64 windows-amd64
+CROSS_TARGETS := linux-amd64 linux-arm64 darwin-amd64 darwin-arm64 windows-amd64 android-arm64
 
 ifneq ($(filter cross-one,$(MAKECMDGOALS)),)
 export GOOS := $(CROSS_OS)
 export GOARCH := $(CROSS_ARCH)
+# Pinned, not inherited: the §4.F guarantee is that every CROSS_TARGETS pair
+# builds with cgo disabled, and an ambient CGO_ENABLED=1 (e.g. from a dev
+# shell with a C toolchain configured) would silently break it per-target.
+export CGO_ENABLED := 0
 endif
 
 CROSS_BIN := 9router-go
@@ -219,7 +223,10 @@ cross-darwin-arm64:
 cross-windows-amd64:
 	@$(MAKE) --no-print-directory cross-one CROSS_OS=windows CROSS_ARCH=amd64 OUT=$(CROSS_BIN)-windows-amd64.exe
 
-CROSS_BUILD_TARGETS := cross-linux-amd64 cross-linux-arm64 cross-darwin-amd64 cross-darwin-arm64 cross-windows-amd64
+cross-android-arm64:
+	@$(MAKE) --no-print-directory cross-one CROSS_OS=android CROSS_ARCH=arm64 OUT=$(CROSS_BIN)-android-arm64
+
+CROSS_BUILD_TARGETS := cross-linux-amd64 cross-linux-arm64 cross-darwin-amd64 cross-darwin-arm64 cross-windows-amd64 cross-android-arm64
 
 cross: web-build
 	@$(MAKE) -j $(CROSS_BUILD_TARGETS)
@@ -229,6 +236,23 @@ cross: web-build
 .PHONY: cross-one $(CROSS_BUILD_TARGETS)
 cross-one:
 	go build -ldflags="$(LDFLAGS)" -o $(OUT) ./cmd/9router-go/
+
+.PHONY: cross-android-armv7 cross-termux
+## cross-android-armv7 — build the Termux/Android 32-bit ARMv7 binary
+#
+# Deliberately NOT part of CROSS_TARGETS / `make cross`. Go's linker requires
+# external linking for every android target except arm64
+# (internal/platform MustLinkExternal), so this one target needs CGO_ENABLED=1
+# and the Android NDK clang — it cannot join the CGO-free matrix §4.F pins,
+# and folding it into `make cross` would make every release build depend on
+# an NDK install. scripts/build-android-armv7.sh locates the NDK and fails
+# with instructions when it is absent. CI installs the NDK explicitly.
+cross-android-armv7: web-build
+	VERSION=$(VERSION) bash scripts/build-android-armv7.sh
+
+## cross-termux — build both Termux/Android binaries (arm64 + armv7)
+cross-termux: cross-android-arm64 cross-android-armv7
+	@ls -lh $(CROSS_BIN)-android-*
 ## mitm-enable — start MITM proxy
 mitm-enable: build
 	$(BINARY) mitm enable

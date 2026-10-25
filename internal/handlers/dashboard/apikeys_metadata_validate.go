@@ -103,7 +103,9 @@ func metadataPriceCents(value any) error {
 		return errValue("must be a whole number of cents")
 	}
 	if cents < 0 || cents > maxMetadataPriceCents {
-		return errValue(fmt.Sprintf("must be between 0 and %d", maxMetadataPriceCents))
+		// int64, not the bare constant: the constant's default type is int,
+		// which overflows at compile time on 32-bit targets (armv7).
+		return errValue(fmt.Sprintf("must be between 0 and %d", int64(maxMetadataPriceCents)))
 	}
 	return nil
 }

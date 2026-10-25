@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"9router/proxy/internal/constants"
@@ -120,17 +121,21 @@ func ForwardGemini(ctx context.Context, client *http.Client, cfg *providers.Prov
 		}
 		// Always dump 400 INVALID_ARGUMENT payloads for post-mortem (covers
 		// "items.items: missing field." and other schema rejections).
+		// os.TempDir, not a hardcoded /tmp: Android/Termux has no /tmp, and
+		// $TMPDIR is where Termux points its per-app temp directory.
 		if resp.StatusCode == http.StatusBadRequest {
-			_ = os.WriteFile("/tmp/9router-gemini-400.json", sendBody, 0644)
+			dumpPath := filepath.Join(os.TempDir(), "9router-gemini-400.json")
+			_ = os.WriteFile(dumpPath, sendBody, 0644)
 			preview := sendBody
 			if len(preview) > 8000 {
 				preview = preview[:8000]
 			}
-			log.Warn("gemini", "dumped 400 request to /tmp/9router-gemini-400.json", "model", modelName, "bytes", len(sendBody), "error", string(errBody[:min(500, len(errBody))]), "preview", string(preview))
+			log.Warn("gemini", "dumped 400 request to "+dumpPath, "model", modelName, "bytes", len(sendBody), "error", string(errBody[:min(500, len(errBody))]), "preview", string(preview))
 		}
 		if bytes.Contains(errBody, []byte("thought signature")) || bytes.Contains(errBody, []byte("Thought signature")) {
-			_ = os.WriteFile("/tmp/9router-ag-debug.json", sendBody, 0644)
-			log.Warn("gemini", "dumped thought-signature request to /tmp/9router-ag-debug.json", "model", modelName, "bytes", len(sendBody), "error", string(errBody[:min(200, len(errBody))]))
+			dumpPath := filepath.Join(os.TempDir(), "9router-ag-debug.json")
+			_ = os.WriteFile(dumpPath, sendBody, 0644)
+			log.Warn("gemini", "dumped thought-signature request to "+dumpPath, "model", modelName, "bytes", len(sendBody), "error", string(errBody[:min(200, len(errBody))]))
 			preview := sendBody
 			if len(preview) > 4000 {
 				preview = preview[:4000]

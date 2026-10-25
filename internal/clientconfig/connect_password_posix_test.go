@@ -1,4 +1,4 @@
-//go:build linux || darwin || freebsd || netbsd || openbsd || dragonfly
+//go:build linux || android || darwin || freebsd || netbsd || openbsd || dragonfly
 
 package clientconfig
 

@@ -161,6 +161,7 @@ docker run -d --name 9router-go --restart unless-stopped \
 # Manual download — pick your file, no command line guesswork:
 # Windows → .exe | Mac M1+ → darwin-arm64 | Mac Intel → darwin-amd64
 # Linux VPS → linux-amd64 | Raspberry Pi → linux-arm64
+# Android/Termux → android-arm64 (aarch64) | android-armv7 (armv7l)
 ```
 
 📦 [All release binaries](https://github.com/luqman-v1/9router-go/releases/latest) • 🔨 [Build from source](#-setup-guide)
@@ -262,6 +263,45 @@ cd 9router-go
 make web-build   # bun install --frozen-lockfile && bun run build
 make build       # embeds VERSION into the Go binary
 ```
+
+### 📱 Termux / Android
+
+Releases ship two native Android (bionic) binaries — these are the ones to
+use in Termux, **not** the `linux-*` assets (a glibc/static Linux ELF is not
+what Termux runs):
+
+| Device CPU | Asset |
+| --- | --- |
+| 64-bit ARM (`uname -m` → `aarch64`) | `9router-go-android-arm64` |
+| 32-bit ARM (`uname -m` → `armv7l` / `armv8l`) | `9router-go-android-armv7` |
+
+Install with the one-line installer — inside Termux it detects the
+environment, downloads the Android asset and installs into `$PREFIX/bin`
+(no `sudo`, no `/usr/local/bin`):
+
+```bash
+# inside Termux
+curl -fsSL https://raw.githubusercontent.com/luqman-v1/9router-go/main/install.sh | bash
+9router-go            # foreground, or: 9router-go start (background daemon)
+# Dashboard: http://localhost:20130
+```
+
+Notes for Termux:
+
+- Data defaults to `~/.9router`, temp files honour `$TMPDIR` — both live
+  under the Termux prefix, so no path overrides are needed.
+- Android can kill background processes: keep the session alive with
+  `termux-wake-lock`, or autostart via Termux:Boot / `termux-services`
+  (`9router-go service install --backend cron` also works when a cron
+  daemon is installed; there is no systemd on Android).
+- Desktop-only features stay off: the system tray, MITM CA installation,
+  and browser-cookie import (no desktop browser/D-Bus keyring) cannot work
+  on Android. The gateway, dashboard and self-update work as usual — the
+  updater matches the `android-arm64` / `android-armv7` assets.
+- Building the armv7 binary from source needs the Android NDK
+  (`make cross-android-armv7`); arm64 is a plain CGO-free cross build
+  (`make cross-android-arm64`, also part of `make cross`). On-device, a
+  native Termux build works directly: `pkg install golang && make build`.
 
 ### Run
 

@@ -265,6 +265,25 @@ func TestMatchReleaseAsset(t *testing.T) {
 	}
 }
 
+// The Termux/Android assets are named with a dash (9router-go-android-arm64,
+// 9router-go-android-armv7). A 32-bit arm install (GOARCH=arm) must match the
+// armv7 asset and never the arm64 one listed before it: "arm" is a substring
+// of "arm64", so an unguarded scan hands it a binary it cannot exec.
+func TestMatchReleaseAssetAndroidArm(t *testing.T) {
+	assets := []releaseAsset{
+		{Name: "9router-go-android-arm64", BrowserDownloadURL: "url-android-arm64"},
+		{Name: "9router-go-android-armv7", BrowserDownloadURL: "url-android-armv7"},
+		{Name: "SHA256SUMS.txt", BrowserDownloadURL: "url-checksums"},
+	}
+
+	if url := matchReleaseAsset(assets, "android", "arm"); url != "url-android-armv7" {
+		t.Errorf("expected url-android-armv7, got %s", url)
+	}
+	if url := matchReleaseAsset(assets, "android", "arm64"); url != "url-android-arm64" {
+		t.Errorf("expected url-android-arm64, got %s", url)
+	}
+}
+
 func TestAutoUpdate_StatusAndToggle(t *testing.T) {
 	SetAutoUpdate(true)
 	if !IsAutoUpdateEnabled() {

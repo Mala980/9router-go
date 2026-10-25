@@ -18,15 +18,45 @@ fatal() { printf '\033[1;31m[9router-go]\033[0m %s\n' "$*" >&2; exit 1; }
 
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
 ARCH="$(uname -m)"
+
+# Termux (Android) has no /usr/local/bin and no sudo; its prefix is the whole
+# installation root. Detect it before the generic Linux path: uname still
+# says Linux there, so without this the installer picked the glibc-style
+# linux asset and a directory that does not exist.
+TERMUX=0
+if [ -n "${TERMUX_VERSION:-}" ] || [ -n "${TERMUX_API:-}" ]; then
+  TERMUX=1
+fi
+case "${PREFIX:-}" in
+  *com.termux*) TERMUX=1 ;;
+esac
+if [ "$(uname -o 2>/dev/null || true)" = "Android" ]; then
+  TERMUX=1
+fi
+if [ "$TERMUX" = "1" ]; then
+  OS="android"
+  # Only the untouched default is replaced: an explicit BINDIR wins.
+  if [ "$BINDIR" = "/usr/local/bin" ]; then
+    BINDIR="${PREFIX:-$HOME/../usr}/bin"
+  fi
+fi
+
 case "$OS" in
-  linux|darwin) ;;
-  *) fatal "unsupported OS: $OS (Linux and macOS only; Windows: download the .exe from https://github.com/$REPO/releases/latest)" ;;
+  linux|darwin|android) ;;
+  *) fatal "unsupported OS: $OS (Linux, macOS and Android/Termux only; Windows: download the .exe from https://github.com/$REPO/releases/latest)" ;;
 esac
 case "$ARCH" in
   x86_64|amd64) ARCH="amd64" ;;
   arm64|aarch64) ARCH="arm64" ;;
-  *) fatal "unsupported architecture: $ARCH (amd64/arm64 only)" ;;
+  armv7l|armv8l|arm) ARCH="armv7" ;;
+  *) fatal "unsupported architecture: $ARCH (amd64/arm64/armv7 only)" ;;
 esac
+if [ "$ARCH" = "armv7" ] && [ "$OS" != "android" ]; then
+  fatal "the armv7 build targets Android/Termux only — no $OS/armv7 asset is published"
+fi
+if [ "$ARCH" = "amd64" ] && [ "$OS" = "android" ]; then
+  fatal "no Android x86_64 asset is published (arm64/armv7 only)"
+fi
 
 ASSET="9router-go-${OS}-${ARCH}"
 if [ "$VERSION" = "latest" ]; then

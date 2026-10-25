@@ -162,6 +162,22 @@ jobs:
       - name: Build all platforms
         run: make cross
 
+      # The Termux/Android armv7 binary is the one target outside `make
+      # cross`: Go requires external linking for android/arm, so it builds
+      # with the NDK clang (scripts/build-android-armv7.sh). Its digest is
+      # appended to the SHA256SUMS.txt `make cross` generated — the updater
+      # refuses an asset the manifest does not cover.
+      - name: Set up Android NDK (for the armv7 target only)
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27
+          add-to-path: false
+
+      - name: Build the Android armv7 target
+        run: |
+          make cross-android-armv7
+          sha256sum 9router-go-android-armv7 >> SHA256SUMS.txt
+
       - name: Generate changelog
         run: |
           set -euo pipefail
@@ -286,6 +302,8 @@ jobs:
             9router-go-darwin-amd64
             9router-go-darwin-arm64
             9router-go-windows-amd64.exe
+            9router-go-android-arm64
+            9router-go-android-armv7
             SHA256SUMS.txt
           body_path: /tmp/notes.md
           generate_release_notes: false
