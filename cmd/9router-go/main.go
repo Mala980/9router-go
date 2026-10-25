@@ -17,6 +17,7 @@ import (
 
 	"9router/proxy/internal/app"
 	"9router/proxy/internal/daemon"
+	"9router/proxy/internal/netfix"
 	"9router/proxy/internal/shutdown"
 	"9router/proxy/internal/updater"
 )
@@ -31,6 +32,15 @@ func binaryName() string {
 }
 
 func main() {
+	// Fix Android/Termux DNS before anything can resolve a name:
+	// Go's pure resolver reads /etc/resolv.conf, which Android does
+	// not have, and silently falls back to [::1]:53 where nothing
+	// listens — every upstream lookup would fail. netfix installs a
+	// working default resolver from Termux's resolv.conf when (and
+	// only when) the environment needs it; see internal/netfix.
+	if active, servers := netfix.Install(netfix.Options{}); active {
+		log.Printf("[netfix] DNS resolver fallback active (Android/Termux): nameservers=%s", strings.Join(servers, ","))
+	}
 	self := binaryName()
 	app := &cli.App{
 		Name:  self,

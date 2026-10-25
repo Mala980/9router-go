@@ -290,6 +290,12 @@ Notes for Termux:
 
 - Data defaults to `~/.9router`, temp files honour `$TMPDIR` — both live
   under the Termux prefix, so no path overrides are needed.
+- DNS: Android has no `/etc/resolv.conf`, so Go's resolver would fall
+  back to `[::1]:53` and every upstream lookup would fail. At startup
+  the binary detects this (`[netfix]` log line) and resolves via
+  Termux's `$PREFIX/etc/resolv.conf`, falling back to `1.1.1.1` /
+  `8.8.8.8`. To pin nameservers yourself, set e.g.
+  `NINEROUTER_DNS=1.1.1.1,8.8.8.8`.
 - Android can kill background processes: keep the session alive with
   `termux-wake-lock`, or autostart via Termux:Boot / `termux-services`
   (`9router-go service install --backend cron` also works when a cron
