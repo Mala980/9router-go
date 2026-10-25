@@ -646,3 +646,26 @@ jobs:
           # sha256sum -c reads the file it is given and exits non-zero on any
           # mismatch, which is the property the updater relies on.
           sha256sum -c SHA256SUMS.txt
+
+      # Publish the built binaries as a run artifact. Until this step existed
+      # the job proved the artifacts were correct and then threw them away
+      # with the runner: nothing was downloadable from a CI run, and the only
+      # way to get a binary (e.g. to smoke-test the Termux builds on a real
+      # phone before tagging) was a release tag. Releases still come from
+      # release.yml on tags; this is the pre-release download of exactly the
+      # bytes the assertions above just verified, checksums included.
+      - name: Upload binaries as a run artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 9router-go-binaries
+          path: |
+            9router-go-linux-amd64
+            9router-go-linux-arm64
+            9router-go-darwin-amd64
+            9router-go-darwin-arm64
+            9router-go-windows-amd64.exe
+            9router-go-android-arm64
+            9router-go-android-armv7
+            SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 90
