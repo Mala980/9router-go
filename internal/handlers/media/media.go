@@ -15,6 +15,7 @@ import (
 	"context"
 	"encoding/base64"
 	json "encoding/json/v2"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -979,6 +980,55 @@ func (h *MediaHandler) forwardMediaRequest(w http.ResponseWriter, r *http.Reques
 		}
 		return
 	}
+
+	// UC web: the persona image API needs a minted Clerk session, not a bearer
+	// key, so the generic forward cannot reach it.
+	if (endpoint == "/v1/images/generations" || endpoint == "/images/generations") && (modelInfo.Provider == "uc-web" || modelInfo.Provider == "uc") {
+		if err := h.handleUcWebImage(w, r, body, modelInfo); err != nil {
+			writeUcMediaError(w, err)
+		}
+		return
+	}
+
+	// UC web video: generation posts to the persona video API and polls the
+	// result URL, so it shares the image lane's session plumbing.
+	if (endpoint == "/v1/videos/generations" || endpoint == "/videos/generations") && (modelInfo.Provider == "uc-web" || modelInfo.Provider == "uc") {
+		if err := h.handleUcWebVideo(w, r, body, modelInfo); err != nil {
+			writeUcMediaError(w, err)
+		}
+		return
+	}
+
+	// veoaifree.com free tier: WordPress AJAX with a scraped CSRF nonce, not
+	// an OpenAI-compatible endpoint.
+	if (endpoint == "/v1/images/generations" || endpoint == "/images/generations") && (modelInfo.Provider == "veoaifree-web" || modelInfo.Provider == "veo-free") {
+		if err := h.handleVeoFreeWebImage(w, r, body, modelInfo); err != nil {
+			handlerutil.WriteJSONError(w, http.StatusBadGateway, err.Error())
+		}
+		return
+	}
+	if (endpoint == "/v1/videos/generations" || endpoint == "/videos/generations") && (modelInfo.Provider == "veoaifree-web" || modelInfo.Provider == "veo-free") {
+		if err := h.handleVeoFreeWebVideo(w, r, body, modelInfo); err != nil {
+			handlerutil.WriteJSONError(w, http.StatusBadGateway, err.Error())
+		}
+		return
+	}
+
+	// grok.com Imagine: the Cloudflare-gated conversations/new endpoint and
+	// the assets.grok.com download live in the chat executor's transport, so
+	// the lane delegates there (upstream imageProvider useExecutor: true).
+	if (endpoint == "/v1/images/generations" || endpoint == "/images/generations") && (modelInfo.Provider == "grok-web" || modelInfo.Provider == "gw") {
+		if err := h.handleGrokWebImage(w, r, body, modelInfo); err != nil {
+			handlerutil.WriteJSONError(w, http.StatusBadGateway, err.Error())
+		}
+		return
+	}
+	if (endpoint == "/v1/videos/generations" || endpoint == "/videos/generations") && (modelInfo.Provider == "grok-web" || modelInfo.Provider == "gw") {
+		if err := h.handleGrokWebVideo(w, r, body, modelInfo); err != nil {
+			handlerutil.WriteJSONError(w, http.StatusBadGateway, err.Error())
+		}
+		return
+	}
 	if (endpoint == "/v1/audio/transcriptions" || endpoint == "/audio/transcriptions") && (modelInfo.Provider == "antigravity" || modelInfo.Provider == "ag") {
 		if err := h.handleAntigravitySTT(w, r, body, modelInfo); err != nil {
 			handlerutil.WriteJSONError(w, http.StatusBadGateway, err.Error())
@@ -991,6 +1041,25 @@ func (h *MediaHandler) forwardMediaRequest(w http.ResponseWriter, r *http.Reques
 	if (endpoint == "/v1/audio/transcriptions" || endpoint == "/audio/transcriptions") && (modelInfo.Provider == "elevenlabs" || modelInfo.Provider == "el") {
 		if err := h.handleElevenLabsSTT(w, r, body, modelInfo); err != nil {
 			handlerutil.WriteJSONError(w, http.StatusBadGateway, err.Error())
+		}
+		return
+	}
+
+	// Codex OAuth transcription: a fixed ChatGPT endpoint addressed with the
+	// Codex account's own identity, so no connection URL override applies and
+	// only the model "transcribe" is valid here.
+	if isTranscriptionEndpoint(endpoint) && (modelInfo.Provider == "codex" || modelInfo.Provider == "cx") {
+		if modelInfo.Model != codexSTTModel {
+			handlerutil.WriteJSONError(w, http.StatusBadRequest, codexSTTModelHintMsg)
+			return
+		}
+		if err := h.handleCodexSTT(w, r, body, modelInfo); err != nil {
+			var stErr *codexSTTError
+			if errors.As(err, &stErr) {
+				handlerutil.WriteJSONError(w, stErr.status, stErr.message)
+			} else {
+				handlerutil.WriteJSONError(w, http.StatusBadGateway, err.Error())
+			}
 		}
 		return
 	}
