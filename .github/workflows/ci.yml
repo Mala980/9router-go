@@ -25,9 +25,9 @@ jobs:
   # Bun. A one-file stub of web/dist is enough for the linters.
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # fetch-depth 0 so the baseline rev below is resolvable: a PR needs
           # origin/<base> for the merge-base, and a push needs HEAD~1, which a
@@ -35,7 +35,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.27"
           cache: true
@@ -142,9 +142,9 @@ jobs:
   changeset:
     name: Changelog fragment
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # The three-dot diff below needs a merge base, which a depth-1 clone
           # does not have.
@@ -223,9 +223,9 @@ jobs:
           echo "changelog fragment present."
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -260,7 +260,7 @@ jobs:
         run: bun run ratchet:svelte
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.27"
           cache: true
@@ -309,7 +309,7 @@ jobs:
 
   # `internal/service` picks which init system owns the gateway on the running
   # machine, so it is the one package full of runtime.GOOS branches — and the
-  # one CI structurally could not see, since every job ran ubuntu-latest. Three
+  # one CI structurally could not see, since every job ran ubuntu-24.04. Three
   # of its tests failed on Windows while the Linux runner stayed green
   # (issue #304): a WorkingDirectory assertion that could not express a native
   # path, and two that needed symlink privilege. Scoped to this package so the
@@ -319,7 +319,7 @@ jobs:
     name: Service tests (Windows)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # web/dist must exist before any Go package compiles: go test builds the
       # module graph, and web/embed.go has no files to embed without it.
@@ -338,7 +338,7 @@ jobs:
           bun run build
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.27"
           cache: true
@@ -371,9 +371,9 @@ jobs:
   # un-raced build, and internal/handlers/chat alone takes ~50s without it.
   race:
     name: Race detector
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # web/dist must exist before any Go package compiles. The SPA is
       # otherwise untouched by this job.
@@ -389,7 +389,7 @@ jobs:
           bun run build
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.27"
           cache: true
@@ -411,9 +411,9 @@ jobs:
   # before the 30s model-catalog sync.
   integration:
     name: Integration tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # The integration suite serves the dashboard SPA through
       # web/embed.go, so web/dist must exist before the package compiles.
@@ -429,7 +429,7 @@ jobs:
           bun run build
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.27"
           cache: true
@@ -453,11 +453,11 @@ jobs:
   # job builds the image on every PR and pushes nothing.
   docker:
     name: Build Docker image (verify only)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Build image
         uses: docker/build-push-action@v7
@@ -495,9 +495,9 @@ jobs:
   # to be, so a broken target fails on the PR that breaks it.
   cross:
     name: Cross-compile
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # web/dist is embedded into every one of the five binaries.
       - name: Set up Bun
@@ -506,7 +506,7 @@ jobs:
           bun-version: 1.4.2
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.27"
           cache: true
@@ -655,7 +655,7 @@ jobs:
       # release.yml on tags; this is the pre-release download of exactly the
       # bytes the assertions above just verified, checksums included.
       - name: Upload binaries as a run artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: 9router-go-binaries
           path: |
