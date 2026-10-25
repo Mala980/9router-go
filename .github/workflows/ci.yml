@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Manual runs: the only way to verify a branch that has no open PR (push
+  # above is main-only), e.g. checking a long-lived feature branch end to
+  # end without opening or reopening a pull request just for the checks.
+  workflow_dispatch:
 
 permissions:
   contents: read
